@@ -23,13 +23,6 @@
         #    url: https://ensg-sdi.docker/portainer/
         #    env: 1
         #    key: <paste_key_here>
-#
-#    - Grafana: 
-#        icon: grafana.png
-#        href: https://ensg-sdi.docker/grafana
-#        description: Monitoring of SDI system and applications behaviour.
-#        # (Optional) ping : works by sending a HTTP HEAD request to the server
-#        ping: https://ensg-sdi.docker
 
     - File browser:
         icon: filebrowser.png
@@ -38,19 +31,20 @@
         # (Optional) ping : works by sending a HTTP HEAD request to the server
         ping: http://hub.ensg-sdi.docker
 
-#    - PGAdmin: 
-#        icon: pgadmin.png
-#        href: http://ensg-sdi.docker/pgadmin
-#        description: PostGIS ADministration Web GUI.
-#        # (Optional) ping : works by sending a HTTP HEAD request to the server
-#        ping: https://ensg-sdi.docker
-#
-#    - Geoserver: 
-#        icon: maptiler.png
-#        href: http://ensg-sdi.docker/geoserver
-#        description: Geoserver is a versatile FOSS OGW Web services implementation and map server.
-#        # (Optional) ping : works by sending a HTTP HEAD request to the server
-#        ping: https://ensg-sdi.docker
+    - Geoserver: 
+        icon: maptiler.png
+        href: http://hub.ensg-sdi.docker/geoserver
+        description: Geoserver is a versatile FOSS OGW Web services implementation and map server.
+        # (Optional) ping : works by sending a HTTP HEAD request to the server
+        ping: http://hub.ensg-sdi.docker
+
+    - PGAdmin: 
+        icon: pgadmin.png
+        href: http://hub.ensg-sdi.docker/pgadmin
+        description: PostGIS ADministration Web GUI.
+        # (Optional) ping : works by sending a HTTP HEAD request to the server
+        ping: http://hub.ensg-sdi.docker
+
 #
 #    - GeoWebCache: 
 #        icon: maptiler.png

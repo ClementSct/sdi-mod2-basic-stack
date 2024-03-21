@@ -1,0 +1,53 @@
+services:
+  portainer:
+    image: portainer/portainer-ce:alpine
+    container_name: ${COMPOSE_PROJECT_NAME}_portainer
+    command: -H unix:///var/run/docker.sock
+    expose:
+      - "9000"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "portainer_data:/data"
+    restart: always
+
+  postgis:
+    container_name: ${COMPOSE_PROJECT_NAME}_postgis
+    image: postgis/postgis:${POSTGIS_VERSION_TAG:-16-3.4}
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    ports:
+      - 127.0.0.1:${POSTGIS_PORT_EXTERNAL:-8001}:5432
+    environment:
+      - "PGUSER=${POSTGRES_USER:-gis}"
+      - "POSTGRES_USER=${POSTGRES_USER:-gis}"
+      - "POSTGRES_DB=${POSTGRES_DB:-gis}"
+      - "POSTGRES_PASSWORD=${POSTGRES_PW:-gis}"
+    shm_size: 256MB
+  
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_pgadmin
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_MAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PW}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  jupyter:
+    container_name: ${COMPOSE_PROJECT_NAME}_jupyter
+    build:
+      context: './data/jupyter'
+    ports:
+      - 8889:8888
+    volumes:
+      - jupyter-data:/home/jovyan/work
+    command: start-notebook.py --NotebookApp.token='my-token'
+    
+volumes:
+  portainer_data:
+  postgis_data:
+  jupyter-data:
+  pgadmin_data:

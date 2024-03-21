@@ -1,0 +1,160 @@
+version: '3'
+
+services:
+  #
+  # Project reverse proxy
+  nginx-proxy:
+    image: ${COMPOSE_PROJECT_NAME}_proxy:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_proxy
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - geoserver
+    build:
+      context: ./data/nginx-proxy
+    environment:
+      - DHPARAM_GENERATION=false
+      - VIRTUAL_PORT=80
+      - VIRTUAL_HOST=hub.ensg-sdi.docker
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.3
+
+  #
+  # Portainer docker admin GUI
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_portainer
+    restart: unless-stopped
+    depends_on:
+      - nginx-proxy
+    expose:
+      - "9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.4
+
+  #
+  # SDI Access hub
+  homepage:
+    image: ghcr.io/benphelps/homepage:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_homepage
+    restart: unless-stopped
+    depends_on:
+      - nginx-proxy
+    expose:
+      - "3000"
+    volumes:
+      - ./data/homepage:/app/config
+      - homepage-public:/app/public
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.5
+  
+  #
+  # File browser
+  # See https://github.com/hurlenko/filebrowser-docker for more information
+  filebrowser:
+    image: hurlenko/filebrowser
+    container_name: ${COMPOSE_PROJECT_NAME}_filebrowser
+    restart: unless-stopped
+    environment:
+      - PUID=$(id -u)
+      - PGID=$(id -g)
+      - FB_BASEURL=/data
+      # The list of avalable options can be found here : https://filebrowser.org/cli/filebrowser#options.
+    expose:
+      - "443:8080"
+    volumes:
+      - ./data/filebrowser/filebrowser.db:/database/filebrowser.db
+      - ./data/filebrowser/config:/config/
+      - ./data/geoserver/host-files:/data/geoserver-host-files
+      - ./data/files:/data/host-files
+      # Client containers volumes
+      - geoserver-data:/data/geoserver/
+      - geoserver-injections:/data/geoserver/inject/
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.6
+
+  db:
+    container_name: ${COMPOSE_PROJECT_NAME}_postgis
+    image: kartoza/postgis:${POSTGIS_VERSION_TAG}
+    volumes:
+      - geo-db-data:/var/lib/postgresql
+    ports:
+      - ${POSTGRES_PORT}:5432
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASS=${POSTGRES_PASS}
+      - ALLOW_IP_RANGE=${ALLOW_IP_RANGE}
+      - FORCE_SSL=TRUE
+    restart: on-failure
+    healthcheck:
+      test: "PGPASSWORD=${POSTGRES_PASS} pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.7
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_pgadmin
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_MAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PW}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.8
+
+  geoserver:
+    image: kartoza/geoserver:${GS_VERSION}
+    volumes:
+      - geoserver-data:/opt/geoserver/data_dir
+      - geoserver-injections:/opt/geoserver/data_dir/_injections
+    restart: on-failure
+    environment:
+      - GEOSERVER_DATA_DIR=${GEOSERVER_DATA_DIR}
+      - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD}
+      - GEOSERVER_ADMIN_USER=${GEOSERVER_ADMIN_USER}
+      - INITIAL_MEMORY=${INITIAL_MEMORY}
+      - MAXIMUM_MEMORY=${MAXIMUM_MEMORY}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: "curl --fail --silent --write-out 'HTTP CODE : %{http_code}\n' --output /dev/null -u ${GEOSERVER_ADMIN_USER}:'${GEOSERVER_ADMIN_PASSWORD}' http://localhost:8080/geoserver/rest/about/version.xml"
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+    networks:
+      elabs-revproxy:
+        ipv4_address: 172.24.0.9
+
+volumes:
+  vhost.d:
+  portainer-data:
+  geo-db-data:
+  pgadmin_data:
+  homepage-public:
+  geoserver-data:
+  geoserver-injections:
+
+networks:
+  elabs-revproxy:
+    name: ${APPS_NETWORK}
+    external: true
+    ipam:
+      config:
+        - subnet: "172.24.0.0/16"
